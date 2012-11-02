@@ -1,0 +1,203 @@
+YubiKey schema for LDAP
+=======================
+
+* What? Why?
+------------
+
+PAM authentication with YubiKey requires a list of YubiKey IDs
+for each user who is allowed to login. Typically in the form of
+a system file, for example /etc/yubikeys with entries similar to
+these:
+
+    joe.user:abcdefgh1234:xyzxyz123456:...
+    some.one:hgfedcba9876:hijklmnopqrs:...
+
+The pam_yubico module is then used with authfile=/etc/yubikeys
+parameter:
+
+    auth require pam_yubico.so authfile=/etc/yubikeys ...
+
+That works well for one or two servers. However once you begin
+deploying YubiKey authentication across a handful or more servers
+you soon realise that a manual synchronisation of /etc/yubikeys
+file is PITA.
+
+Since you already authenticate your users against LDAP it would
+only make sense to keep these YubiKey IDs in LDAP as well,
+together with all other user details.
+
+Sadly there seems to be no "official" LDAP schema provided by
+Yubico, the company behind YubiKeys. Their official stance, as of
+the time of this writing, is to store the YubiKey IDs in one of
+the unused LDAP attributes. What? Seriously?
+
+Search no more. Follow the instructions below to _cleanly_ add
+YubiKey IDs to your LDAP database:
+
+    dn: uid=joe.user,ou=People,cn=example,cn=com
+    objectClass: posixAccount
+    objectClass: yubiKeyUser
+    objectClass: ...
+    uid: joe.user
+    ...
+    yubiKeyId: abcdefgh1234
+    yubiKeyId: xyzxyz123456
+
+_This_ is the way to keep the YubiKey IDs in LDAP. Not through
+exploiting some 'department' or 'favouriteColour' attribute, OMG!
+
+
+* Installation - OLC aka cn=config
+----------------------------------
+
+Have you already migrated your LDAP server to OLC aka OnLine
+Configuration aka cn=schema? If you did your job is easy:
+
+    ~$ ldapadd -W -x -D cn=admin,cn=config -f yubikey.ldif
+          adding new entry "cn=yubikey,cn=schema,cn=config"
+
+(substitute cn=admin with whatever your cn=config RootDN is)
+
+To be sure it worked check out this new file:
+/etc/openldap/slapd.d/cn=config/cn=schema/cn={*}yubikey.ldif
+
+
+* Installation - slapd.conf
+---------------------------
+
+If you are still using the ancient slapd.conf based config and
+can't be bothered to meet the 21st century, well, here are the
+instructions:
+
+1) Copy yubikey.schema to /etc/openldap/schema/
+   (make sure it's got the same permissions and if SELinux
+    context [if used] as the other files in that directory).
+
+2) Open /etc/openldap/slapd.conf and locate the section with
+   schema includes. Add yubikey.schema at the end:
+       include  /etc/openldap/schema/yubikey.schema
+
+3) Restart the slapd daemon.
+
+
+* Figure out the YubiKey ID
+---------------------------
+
+This is very simple - insert YubiKey to your USB slot, open a
+text editor and touch the key. You'll see something like:
+
+    abcdefgh1234uunnvfjueirijbtkneubfdefgddkgflv
+    ^^^^^^^^^^^^
+
+The first 12 characters are the ID: abcdefgh1234
+Simple as that.
+
+
+* Storing the YubiKey IDs
+-------------------------
+
+Now that we've got the yubico schema installed it's time to
+store some keys. There are two steps involved:
+
+1) Add 'objectClass: yubiKeyUser' to each .. well .. YubiKey User
+   object.
+2) Store his YubiKey IDs to .. well .. yubiKeyID attributes
+
+(Quite a self-explanatory naming, isn't it? ;)
+
+You can indeed use your LDAP manager of choice, or rely on the
+classic proven command line tools as we do here.
+
+Open yubikey-add.ldif and enter the following few lines (change
+the dn: and they yubiKeyId: values of course!):
+
+    #
+    # Sample LDIF that stores two YubiKey IDs to uid=joe.user
+    #
+    dn: uid=joe.user,ou=People,dc=example,dc=com
+    changetype: modify
+    add: objectClass
+    objectClass: yubiKeyUser
+    -
+    add: yubiKeyId
+    yubiKeyId: abcdefgh1234
+    -
+    add: yubiKeyId
+    yubiKeyId: xyzxyz123456
+
+(no indentation, each line must start at the beginning of the row)
+
+Now run 'ldapmodify' to make the changes:
+    ~# ldapmodify -W -x -D cn=Manager,dc=example,dc=com -f yubikey-add.ldif
+          modifying entry "uid=joe.user,ou=People,dc=example,dc=com"
+
+Verify with ldapsearch:
+
+    ~# ldapsearch -W -x -D cn=Manager,dc=example,dc=com '(uid=joe.user)'
+
+          dn: uid=joe.user,ou=People,cn=example,cn=com
+          objectClass: posixAccount
+          objectClass: yubiKeyUser
+          objectClass: ...
+          uid: joe.user
+          ...
+          yubiKeyId: abcdefgh1234
+          yubiKeyId: xyzxyz123456
+
+
+* Using it in PAM
+-----------------
+
+Again this change is very simple. Simply replace authfile= with
+the LDAP parameters, i.e. from:
+
+    auth require pam_yubico.so authfile=/etc/yubikeys ...
+
+To (ideally all on one line):
+
+    auth require pam_yubico.so                  \
+          ldap_uri=ldap://ldap.example.com/     \
+          ldapdn=ou=People,dc=example,dc=com    \
+          user_attr=uid                         \
+          yubi_attr=yubiKeyId ...
+
+That's it. Try to SSH to the target system as joe.user, enter the
+password immediately followed by the YubiKey and you should be
+logged in :)
+
+
+* Troubleshooting
+-----------------
+
+If things don't quite work as expected check the following:
+
+- Is SELinux enabled? Are egress firewalls enabled?
+  Note that for YubiCloud authentication the server daemon (e.g.
+  sshd) has to make a HTTPS connection to the YubiCloud servers.
+  Firewalls or SELinux may prevent it to do that.
+
+- Can the SSH server connect to LDAP server?
+  Again, there could be a firewall, broken DNS, etc.
+
+- Can each user read its yubiKeyId LDAP attributes?
+  Your LDAP access control lists (ACL) may prevent that (by
+  default they shouldn't but check that with ldapsearch logging
+  in as uid=joe.user.
+
+- Temporarily add 'debug' at the end of pam_yubico parameters
+  list. It will spit out a lot of potentially useful debug
+  informations.
+
+
+* Credits
+---------
+
+Have you found this schema & document useful?
+Then consider a small PayPal donation at:
+
+    http://logix.cz/michal/devel/yubikey
+
+Thanks!
+
+Michal Ludvig <michal@logix.cz>
+

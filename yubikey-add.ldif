@@ -1,0 +1,13 @@
+#
+# Sample LDIF that stores two YubiKey IDs to uid=joe.user
+#
+dn: uid=joe.user,ou=People,dc=example,dc=com
+changetype: modify
+add: objectClass
+objectClass: yubiKeyUser
+-
+add: yubiKeyId
+yubiKeyId: abcdefgh1234
+-
+add: yubiKeyId
+yubiKeyId: xyzxyz123456
