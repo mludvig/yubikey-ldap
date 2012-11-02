@@ -18,10 +18,10 @@ print("#
 dn: cn=$schemaname,cn=schema,cn=config
 objectClass: olcSchemaConfig
 cn: $schemaname
-
 ");
 
 while(<>) {
+	next if /^\s*$/;
 	$_ =~ s/^objectIdentifier\W/olcObjectIdentifier: {$cntObjectIdentifiers}/i and $cntObjectIdentifiers++;
 	$_ =~ s/^attributeType\W/olcAttributeTypes: {$cntAttributeTypes}/i and $cntAttributeTypes++;
 	$_ =~ s/^objectClass\W/olcObjectClasses: {$cntObjectClasses}/i and $cntObjectClasses++;
