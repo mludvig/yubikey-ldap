@@ -20,9 +20,7 @@ objectIdentifier lxYkObjectClass lxYubiKey:2
 attributetype ( lxYkAttribute:1
   NAME 'yubiKeyId'
   DESC 'Yubico YubiKey ID'
-  EQUALITY caseIgnoreMatch
-  SUBSTR caseIgnoreSubstringsMatch
-  ORDERING caseIgnoreOrderingMatch
+  EQUALITY caseIgnoreIA5Match
   SYNTAX 1.3.6.1.4.1.1466.115.121.1.26{128} )
 
 objectclass ( lxYkObjectClass:1
