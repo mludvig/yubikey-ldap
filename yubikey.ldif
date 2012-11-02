@@ -1,0 +1,41 @@
+#
+# >> automatically generated from: yubikey.schema <<
+#
+
+dn: cn=yubikey,cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: yubikey
+
+#
+# YubiKey LDAP schema
+#
+# Author: Michal Ludvig <michal@logix.cz>
+#         http://logix.cz/michal/devel/yubikey/
+#
+
+# Common Logix structure
+olcObjectIdentifier: {0}lxOID           1.3.6.1.4.1.40770
+olcObjectIdentifier: {1}lxProduction    lxOID:0
+olcObjectIdentifier: {2}lxTesting       lxOID:1
+olcObjectIdentifier: {3}lxProdSNMP      lxProduction:1
+olcObjectIdentifier: {4}lxProdLDAP      lxProduction:2
+
+# YubiKey schema sub-tree
+olcObjectIdentifier: {5}lxYubiKey       lxProdLDAP:2012.11
+olcObjectIdentifier: {6}lxYkAttribute   lxYubiKey:1
+olcObjectIdentifier: {7}lxYkObjectClass lxYubiKey:2
+
+olcAttributeTypes: {0}( lxYkAttribute:1
+  NAME 'yubiKeyId'
+  DESC 'Yubico YubiKey ID'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  ORDERING caseIgnoreOrderingMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26{128} )
+
+olcObjectClasses: {0}( lxYkObjectClass:1
+  NAME 'yubiKeyUser'
+  DESC 'Yubico YubiKey User'
+  SUP top
+  AUXILIARY
+  MAY ( yubiKeyId ) )
