@@ -1,0 +1,29 @@
+#!/usr/bin/env perl
+
+use strict;
+
+open SCH, $ARGV[0] or die("Usage: schema2oid <some.schema>\n");
+
+my ($basename) = ($ARGV[0] =~ /\/*?([^\/]+)$/);
+my ($schemaname) = ($basename =~ /(.*)\.schema$/);
+
+my $cntObjectIdentifiers = 0;
+my $cntAttributeTypes = 0;
+my $cntObjectClasses = 0;
+
+print("#
+# >> automatically generated from: ${basename} <<
+#
+
+dn: cn=$schemaname,cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: $schemaname
+
+");
+
+while(<>) {
+	$_ =~ s/^objectIdentifier\W/olcObjectIdentifier: {$cntObjectIdentifiers}/i and $cntObjectIdentifiers++;
+	$_ =~ s/^attributeType\W/olcAttributeTypes: {$cntAttributeTypes}/i and $cntAttributeTypes++;
+	$_ =~ s/^objectClass\W/olcObjectClasses: {$cntObjectClasses}/i and $cntObjectClasses++;
+	print $_;
+}
