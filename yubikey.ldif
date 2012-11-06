@@ -11,16 +11,15 @@ cn: yubikey
 # Author: Michal Ludvig <michal@logix.cz>
 #         http://logix.cz/michal/devel/yubikey/
 #
-# Common Logix structure
-olcObjectIdentifier: {0}lxOID           1.3.6.1.4.1.40770
-olcObjectIdentifier: {1}lxProduction    lxOID:0
-olcObjectIdentifier: {2}lxTesting       lxOID:1
-olcObjectIdentifier: {3}lxProdSNMP      lxProduction:1
-olcObjectIdentifier: {4}lxProdLDAP      lxProduction:2
+# Common Logix OID structure
+# <LogixOID>.<Project>.<SNMP/LDAP>.<...>
+olcObjectIdentifier: {0}logixOID        1.3.6.1.4.1.40789
+olcObjectIdentifier: {1}lxYubiKeyPrj    logixOID:2012.11.1
+olcObjectIdentifier: {2}lxYkSNMP        lxYubiKeyPrj:1
+olcObjectIdentifier: {3}lxYkLDAP        lxYubiKeyPrj:2
 # YubiKey schema sub-tree
-olcObjectIdentifier: {5}lxYubiKey       lxProdLDAP:2012.11
-olcObjectIdentifier: {6}lxYkAttribute   lxYubiKey:1
-olcObjectIdentifier: {7}lxYkObjectClass lxYubiKey:2
+olcObjectIdentifier: {4}lxYkAttribute   lxYkLDAP:1
+olcObjectIdentifier: {5}lxYkObjectClass lxYkLDAP:2
 olcAttributeTypes: {0}( lxYkAttribute:1
   NAME 'yubiKeyId'
   DESC 'Yubico YubiKey ID'

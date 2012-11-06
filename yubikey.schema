@@ -5,17 +5,16 @@
 #         http://logix.cz/michal/devel/yubikey/
 #
 
-# Common Logix structure
-objectIdentifier lxOID           1.3.6.1.4.1.40770
-objectIdentifier lxProduction    lxOID:0
-objectIdentifier lxTesting       lxOID:1
-objectIdentifier lxProdSNMP      lxProduction:1
-objectIdentifier lxProdLDAP      lxProduction:2
+# Common Logix OID structure
+# <LogixOID>.<Project>.<SNMP/LDAP>.<...>
+objectIdentifier logixOID        1.3.6.1.4.1.40789
+objectIdentifier lxYubiKeyPrj    logixOID:2012.11.1
+objectIdentifier lxYkSNMP        lxYubiKeyPrj:1
+objectIdentifier lxYkLDAP        lxYubiKeyPrj:2
 
 # YubiKey schema sub-tree
-objectIdentifier lxYubiKey       lxProdLDAP:2012.11
-objectIdentifier lxYkAttribute   lxYubiKey:1
-objectIdentifier lxYkObjectClass lxYubiKey:2
+objectIdentifier lxYkAttribute   lxYkLDAP:1
+objectIdentifier lxYkObjectClass lxYkLDAP:2
 
 attributetype ( lxYkAttribute:1
   NAME 'yubiKeyId'
