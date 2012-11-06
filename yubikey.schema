@@ -2,7 +2,8 @@
 # YubiKey LDAP schema
 #
 # Author: Michal Ludvig <michal@logix.cz>
-#         http://logix.cz/michal/devel/yubikey/
+# Consider a small PayPal donation:
+#         http://logix.cz/michal/devel/yubikey-ldap/
 #
 
 # Common Logix OID structure

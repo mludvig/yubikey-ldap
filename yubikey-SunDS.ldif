@@ -6,7 +6,9 @@ objectclass: top
 # Copy this file to <Instance>/config/schema/05-yubikey.ldif
 #
 # Author: Michal Ludvig <michal@logix.cz>
-#         http://logix.cz/michal/devel/yubikey/
+# Consider a small PayPal donation:
+#         http://logix.cz/michal/devel/yubikey-ldap/
+#
 # Converted for OpenDJ and Sun Directory Server by
 #         Ludovic Poitou <ludovic.poitou@gmail.com>
 #

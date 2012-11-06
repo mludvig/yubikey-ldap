@@ -1,5 +1,11 @@
 #!/usr/bin/env perl
 
+# Author: Michal Ludvig <michal@logix.cz>
+# Consider a small PayPal donation:
+#         http://logix.cz/michal/devel/yubikey-ldap/
+
+# License: Public Domain
+
 use strict;
 
 open SCH, $ARGV[0] or die("Usage: schema2oid <some.schema>\n");
