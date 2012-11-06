@@ -79,6 +79,13 @@ instructions:
 
 3) Restart the slapd daemon.
 
+* Installation - OpenDJ or Sun Directory Server
+-----------------------------------------------
+
+Copy the 05-yubikey.ldif file under the schema directory,
+<Instance>/config/schema
+Restart the directory server.
+
 
 * Figure out the YubiKey ID
 ---------------------------
