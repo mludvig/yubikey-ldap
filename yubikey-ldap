@@ -50,6 +50,19 @@ def select_user(search_list):
         except (ValueError, IndexError):
             error("Invalid selection")
 
+def user_menu(cmds):
+    menu = {
+        'a' : 'add',
+        'd' : 'delete',
+        'u' : 'other user',
+        'q' : 'quit'
+    }
+    prompt = " / ".join(["(%s) %s" % (cmd, menu[cmd]) for cmd in cmds])
+    while True:
+        cmd = raw_input(prompt)
+        if cmd in cmds:
+            return cmd
+
 def main_loop(con):
     user = raw_input("LDAP User to manage: ")
     filterstr = "(|(uid=%(user)s*)(cn=%(user)s*))" % { "user" : user }
@@ -80,6 +93,13 @@ def main_loop(con):
         print "% 3d)  %s" % (index + 1, res['yubiKeyIds'][index])
     print
 
+    command = user_menu(cmds = len(res['yubiKeyIds'])>0 and "aduq" or "auq")
+    if command == "a":
+       cmd_add_yubikey(user)
+    elif command == "d":
+        cmd_del_yubikey(user)
+    else:
+        error("Not yet implemented...")
 
     ##print con.compare_s(uid2dn(sys.argv[1]), "objectClass", "yubiKeyUser")
 
