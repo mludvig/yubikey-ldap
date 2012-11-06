@@ -82,8 +82,8 @@ instructions:
 * Installation - OpenDJ or Sun Directory Server
 -----------------------------------------------
 
-Copy the 05-yubikey.ldif file under the schema directory,
-<Instance>/config/schema
+Copy the yubikey-SunDS.ldif file under the schema directory
+<Instance>/config/schema/05-yubikey.ldif
 Restart the directory server.
 
 
