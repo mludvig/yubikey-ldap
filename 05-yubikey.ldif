@@ -1,0 +1,23 @@
+dn: cn=schema
+objectclass: top
+#
+# YubiKey LDAP schema
+#
+# Author: Michal Ludvig <michal@logix.cz>
+#         http://logix.cz/michal/devel/yubikey/
+# Converted for OpenDJ and Sun Directory Server by
+#         Ludovic Poitou <ludovic.poitou@gmail.com> 
+#
+# Common Logix structure
+# YubiKey schema sub-tree
+attributeTypes: ( 1.3.6.1.4.1.40770.0.2.2012.11.1.1
+  NAME 'yubiKeyId'
+  DESC 'Yubico YubiKey ID'
+  EQUALITY caseIgnoreIA5Match
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26{128} )
+objectClasses: ( 1.3.6.1.4.1.40770.0.2.2012.11.2.1
+  NAME 'yubiKeyUser'
+  DESC 'Yubico YubiKey User'
+  SUP top
+  AUXILIARY
+  MAY ( yubiKeyId ) )
