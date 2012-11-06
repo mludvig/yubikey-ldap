@@ -8,6 +8,4 @@ objectClass: yubiKeyUser
 -
 add: yubiKeyId
 yubiKeyId: abcdefgh1234
--
-add: yubiKeyId
 yubiKeyId: xyzxyz123456

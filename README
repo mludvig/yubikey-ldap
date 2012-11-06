@@ -121,8 +121,6 @@ the dn: and they yubiKeyId: values of course!):
     -
     add: yubiKeyId
     yubiKeyId: abcdefgh1234
-    -
-    add: yubiKeyId
     yubiKeyId: xyzxyz123456
 
 (no indentation, each line must start at the beginning of the row)
