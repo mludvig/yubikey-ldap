@@ -38,70 +38,90 @@ def fatal(message, exitcode = 1):
 def uid2dn(uid):
     return "%s=%s,%s" % (conf.uid_attr, uid, conf.base_dn)
 
-def select_user(search_list):
-    for index in range(len(search_list)):
-        print "% 3d)  %s (%s)" % (index + 1, search_list[index][1]['uid'][0], search_list[index][1]['cn'][0])
-    while True:
+class YubiKeyManager(object):
+
+    def __init__(self, conf):
+        self.conf = conf
+
+        # Connect to the LDAP server
         try:
-            index = int(raw_input("Select user: "))
-            if index < 1:
-                raise ValueError
-            return search_list[index-1]
-        except (ValueError, IndexError):
-            error("Invalid selection")
+            self.con = ldap.initialize(conf.uri)
+            self.con.bind_s(conf.bind_dn, conf.bind_pw, ldap.AUTH_SIMPLE)
+        except ldap.INVALID_CREDENTIALS:
+            fatal("Invalid credentials. Check bind_dn [%s] and bind_pw [%s] values." % (conf.bind_dn, conf.bind_pw))
+        except ldap.SERVER_DOWN:
+            fatal("Connection error. Check conf.uri value.")
+        except ldap.LDAPError, e:
+            fatal("%s" % e.args[0]["desc"])
 
-def user_menu(cmds):
-    menu = {
-        'a' : 'add',
-        'd' : 'delete',
-        'u' : 'other user',
-        'q' : 'quit'
-    }
-    prompt = " / ".join(["(%s) %s" % (cmd, menu[cmd]) for cmd in cmds])
-    while True:
-        cmd = raw_input(prompt)
-        if cmd in cmds:
-            return cmd
+    def select_user(self, search_list):
+        for index in range(len(search_list)):
+            print "% 3d)  %s (%s)" % (index + 1, search_list[index][1]['uid'][0], search_list[index][1]['cn'][0])
+        while True:
+            try:
+                index = int(raw_input("Select user: "))
+                if index < 1:
+                    raise ValueError
+                return search_list[index-1]
+            except (ValueError, IndexError):
+                error("Invalid selection")
 
-def main_loop(con):
-    user = raw_input("LDAP User to manage: ")
-    filterstr = "(|(uid=%(user)s*)(cn=%(user)s*))" % { "user" : user }
-    attrlist = [ 'uid', 'cn', 'yubiKeyId' ]
-    res = con.search_s(conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
-    if not res:
-        error("Unknown user: %s" % (user))
-        return
-    if len(res) > 1:
-        res = select_user(res)
-    else:
-        res = res[0]
-    res = {
-        'dn' : res[0],
-        'uid' : res[1]['uid'][0],
-        'cn' : 'cn' in res[1] and res[1]['cn'][0] or '',
-        'yubiKeyIds' : 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {}
-    }
+    def user_menu(self, cmds):
+        menu = {
+            'a' : 'add',
+            'd' : 'delete',
+            'u' : 'other user',
+            'q' : 'quit'
+        }
+        prompt = " / ".join(["(%s) %s" % (cmd, menu[cmd]) for cmd in cmds])
+        while True:
+            cmd = raw_input(prompt)
+            if cmd in cmds:
+                return cmd
 
-    print "%(cn)s [%(uid)s] has" % res,
-    if not res['yubiKeyIds']:
-        print "no assigned YubiKeys"
-    elif len(res['yubiKeyIds']) == 1:
-        print "1 assigned YubiKey"
-    else:
-        print "%d assigned YubiKeys" % len(res['yubiKeyIds'])
-    for index in range(len(res['yubiKeyIds'])):
-        print "% 3d)  %s" % (index + 1, res['yubiKeyIds'][index])
-    print
+    def main(self):
+        user = raw_input("LDAP User to manage: ")
+        filterstr = "(|(uid=%(user)s*)(cn=%(user)s*))" % { "user" : user }
+        attrlist = [ 'uid', 'cn', 'yubiKeyId' ]
+        res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
+        if not res:
+            error("Unknown user: %s" % (user))
+            return
+        if len(res) > 1:
+            res = self.select_user(res)
+        else:
+            res = res[0]
+        res = {
+            'dn' : res[0],
+            'uid' : res[1]['uid'][0],
+            'cn' : 'cn' in res[1] and res[1]['cn'][0] or '',
+            'yubiKeyIds' : 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {}
+        }
 
-    command = user_menu(cmds = len(res['yubiKeyIds'])>0 and "aduq" or "auq")
-    if command == "a":
-       cmd_add_yubikey(user)
-    elif command == "d":
-        cmd_del_yubikey(user)
-    else:
-        error("Not yet implemented...")
+        print "%(cn)s [%(uid)s] has" % res,
+        if not res['yubiKeyIds']:
+            print "no assigned YubiKeys"
+        elif len(res['yubiKeyIds']) == 1:
+            print "1 assigned YubiKey"
+        else:
+            print "%d assigned YubiKeys" % len(res['yubiKeyIds'])
+        for index in range(len(res['yubiKeyIds'])):
+            print "% 3d)  %s" % (index + 1, res['yubiKeyIds'][index])
+        print
 
-    ##print con.compare_s(uid2dn(sys.argv[1]), "objectClass", "yubiKeyUser")
+        command = self.user_menu(cmds = len(res['yubiKeyIds'])>0 and "aduq" or "auq")
+        if command == "a":
+           cmd_add_yubikey(user)
+        elif command == "d":
+            cmd_del_yubikey(user)
+        elif command == "u":
+            return  # restart main() in the caller
+        elif command == "q":
+            sys.exit(0)
+        else:
+            error("Not yet implemented...")
+
+        ##print con.compare_s(uid2dn(sys.argv[1]), "objectClass", "yubiKeyUser")
 
 if __name__ == "__main__":
     # Temporary config-like handling.
@@ -111,24 +131,15 @@ if __name__ == "__main__":
     except:
         fatal("Failure reading config file: %s" % config_file)
     
-    # Connect to the LDAP server
-    try:
-        con = ldap.initialize(conf.uri)
-        con.bind_s(conf.bind_dn, conf.bind_pw, ldap.AUTH_SIMPLE)
-    except ldap.INVALID_CREDENTIALS:
-        fatal("Invalid credentials. Check bind_dn [%s] and bind_pw [%s] values." % (conf.bind_dn, conf.bind_pw))
-    except ldap.SERVER_DOWN:
-        fatal("Connection error. Check conf.uri value.")
-    except ldap.LDAPError, e:
-        fatal("%s" % e.args[0]["desc"])
- 
+    ykmgr = YubiKeyManager(conf)
+
     # Enter main loop
     while True:
         try:
-            main_loop(con)
+            ykmgr.main()
         except (KeyboardInterrupt, EOFError):
             print "\n"
             break
 
-    con.unbind_s()
+    #con.unbind_s()
     #print con.whoami_s()
