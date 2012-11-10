@@ -93,7 +93,27 @@ class YubiKeyManager(object):
         self.refresh_user_record()
 
     def cmd_del_yubikey(self):
-        pass
+        def _del_ykid(ykid):
+            debug("Removing yubiKeyId:%s from dn:%s" % (ykid, self.user_record['dn']))
+            mod_attrs = [( ldap.MOD_DELETE, 'yubiKeyId', ykid)]
+            self.con.modify_s(self.user_record['dn'], mod_attrs)
+            self.refresh_user_record()
+
+        self.display_user_info()
+        while True:
+            print "Enter YubiKey or the index number. Enter when done. "
+            ykid = raw_input("YubiKey to Delete: ")
+            if not ykid:
+                break
+            if ykid[:12] in self.user_record['yubiKeyIds']:
+                _del_ykid(ykid)
+            else:
+                try:
+                    index = int(ykid) - 1
+                    ykid = self.user_record['yubiKeyIds'][index]
+                    _del_ykid(ykid)
+                except:
+                    continue
 
     def select_user(self, search_list):
         for index in range(len(search_list)):
