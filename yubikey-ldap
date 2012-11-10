@@ -33,7 +33,6 @@ def uid2dn(uid):
     return "%s=%s,%s" % (conf.uid_attr, uid, conf.base_dn)
 
 class YubiKeyManager(object):
-
     def __init__(self, conf):
         self.conf = conf
 
@@ -119,7 +118,7 @@ class YubiKeyManager(object):
     def refresh_user_record(self, filterstr = None):
         if not filterstr:
             filterstr = "(uid=%(uid)s)" % self.user_record
-        attrlist = [ 'objectClass', 'uid', 'cn', 'yubiKeyId', 'yubiKeySerial' ]
+        attrlist = [ 'objectClass', 'uid', 'cn', 'yubiKeyId' ]
         res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         if not res:
             error("Unknown user: %(uid)s" % self.user_record)
@@ -135,7 +134,6 @@ class YubiKeyManager(object):
             'uid' : res[1]['uid'][0],
             'cn' : 'cn' in res[1] and res[1]['cn'][0] or '',
             'yubiKeyIds' : 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {},
-            'yubiKeySerials' : 'yubiKeySerial' in res[1] and res[1]['yubiKeySerial'] or {},
         }
 
     def display_user_info(self):
