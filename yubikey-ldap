@@ -1,11 +1,5 @@
 #!/usr/bin/env python
 
-# Suggested workflow:
-# - Enter username (or <Enter> to search by YubiKey): "user.name"
-#   - Search uid=user.name - find objectClass, yubiKeyId
-#   - Display yubiKeyId(s) if any
-#   - Actions: +Add, [1-10]Delete, 
-
 import sys
 import re
 import ldap
@@ -54,6 +48,54 @@ class YubiKeyManager(object):
         except ldap.LDAPError, e:
             fatal("%s" % e.args[0]["desc"])
 
+        self.menu = {
+            'a' : { 'label' : 'add', 'callback' : self.cmd_add_yubikey },
+            'd' : { 'label' : 'delete', 'callback' : self.cmd_del_yubikey },
+            'u' : { 'label' : 'other user' },
+            'q' : { 'label' : 'quit' },
+        }
+
+    def cmd_add_yubikey(self):
+        # Read YubiKey id, chop 12 chars
+        while True:
+            print "\nEnter YubiKey ID (12 chars minimum, best way is to touch the key)"
+            ykid = raw_input("YubiKey ID: ")
+            if not ykid:
+                return
+            if re.search('[^a-z]', ykid):
+                print "Invalid YubiKey ID. Please try again."
+                continue
+            if len(ykid) < 12:
+                print "YubiKey ID must be at least 12 characters. Please try again."
+                continue
+            ykid = ykid[:12]
+
+            # Check YubiKey id is already there if exists
+            if ykid in self.user_record['yubiKeyIds']:
+                print "YubiKey '%s' is already assigned to '%s'. Please try again." % (ykid, self.user_record['uid'])
+                continue
+
+            print "\nAssigning YubiKey '%s' to '%s'" % (ykid, self.user_record['uid'])
+            yesno = raw_input("Commit? [Y/n] ")
+            if yesno == '' or yesno[0] in ('y', 'Y'):
+                break
+
+        # Check yubiKeyUser objectClass and Add if doesn't exist
+        if 'yubiKeyUser' not in self.user_record['objectClasses']:
+            debug("Adding objectClass:yubiKeyUser to dn:%(dn)s" % self.user_record)
+            mod_attrs = [( ldap.MOD_ADD, 'objectClass', 'yubiKeyUser' )]
+            self.con.modify_s(self.user_record['dn'], mod_attrs)
+            self.refresh_user_record()
+
+        # Save yubiKey data to LDAP
+        debug("Adding yubiKeyId:%s to dn:%s" % (ykid, self.user_record['dn']))
+        mod_attrs = [( ldap.MOD_ADD, 'yubiKeyId', ykid)]
+        self.con.modify_s(self.user_record['dn'], mod_attrs)
+        self.refresh_user_record()
+
+    def cmd_del_yubikey(self):
+        pass
+
     def select_user(self, search_list):
         for index in range(len(search_list)):
             print "% 3d)  %s (%s)" % (index + 1, search_list[index][1]['uid'][0], search_list[index][1]['cn'][0])
@@ -67,61 +109,68 @@ class YubiKeyManager(object):
                 error("Invalid selection")
 
     def user_menu(self, cmds):
-        menu = {
-            'a' : 'add',
-            'd' : 'delete',
-            'u' : 'other user',
-            'q' : 'quit'
-        }
-        prompt = " / ".join(["(%s) %s" % (cmd, menu[cmd]) for cmd in cmds])
+        prompt = " / ".join(["(%s) %s" % (cmd, self.menu[cmd]['label']) for cmd in cmds])
+        prompt += ": "
         while True:
             cmd = raw_input(prompt)
             if cmd in cmds:
                 return cmd
 
-    def main(self):
-        user = raw_input("LDAP User to manage: ")
-        filterstr = "(|(uid=%(user)s*)(cn=%(user)s*))" % { "user" : user }
-        attrlist = [ 'uid', 'cn', 'yubiKeyId' ]
+    def refresh_user_record(self, filterstr = None):
+        if not filterstr:
+            filterstr = "(uid=%(uid)s)" % self.user_record
+        attrlist = [ 'objectClass', 'uid', 'cn', 'yubiKeyId', 'yubiKeySerial' ]
         res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         if not res:
-            error("Unknown user: %s" % (user))
+            error("Unknown user: %(uid)s" % self.user_record)
             return
         if len(res) > 1:
             res = self.select_user(res)
         else:
             res = res[0]
-        res = {
+
+        self.user_record = {
             'dn' : res[0],
+            'objectClasses' : res[1]['objectClass'],
             'uid' : res[1]['uid'][0],
             'cn' : 'cn' in res[1] and res[1]['cn'][0] or '',
-            'yubiKeyIds' : 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {}
+            'yubiKeyIds' : 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {},
+            'yubiKeySerials' : 'yubiKeySerial' in res[1] and res[1]['yubiKeySerial'] or {},
         }
 
-        print "%(cn)s [%(uid)s] has" % res,
-        if not res['yubiKeyIds']:
+    def display_user_info(self):
+        print "%(cn)s [%(uid)s] has" % self.user_record,
+        if not self.user_record['yubiKeyIds']:
             print "no assigned YubiKeys"
-        elif len(res['yubiKeyIds']) == 1:
+        elif len(self.user_record['yubiKeyIds']) == 1:
             print "1 assigned YubiKey"
         else:
-            print "%d assigned YubiKeys" % len(res['yubiKeyIds'])
-        for index in range(len(res['yubiKeyIds'])):
-            print "% 3d)  %s" % (index + 1, res['yubiKeyIds'][index])
+            print "%d assigned YubiKeys" % len(self.user_record['yubiKeyIds'])
+        for index in range(len(self.user_record['yubiKeyIds'])):
+            print "% 3d)  %s" % (index + 1, self.user_record['yubiKeyIds'][index])
         print
 
-        command = self.user_menu(cmds = len(res['yubiKeyIds'])>0 and "aduq" or "auq")
-        if command == "a":
-           cmd_add_yubikey(user)
-        elif command == "d":
-            cmd_del_yubikey(user)
-        elif command == "u":
-            return  # restart main() in the caller
-        elif command == "q":
-            sys.exit(0)
-        else:
-            error("Not yet implemented...")
+    def main(self):
+        user = raw_input("LDAP User to manage: ")
+        filterstr = "(|(uid=%(user)s*)(cn=%(user)s*))" % { "user" : user }
+        self.refresh_user_record(filterstr)
 
-        ##print con.compare_s(uid2dn(sys.argv[1]), "objectClass", "yubiKeyUser")
+        while True:
+            self.display_user_info()
+
+            command = self.user_menu(cmds = len(self.user_record['yubiKeyIds'])>0 and "aduq" or "auq")
+            if command not in self.menu:
+                warning("Invalid command. Please try again.")
+                continue
+
+            if 'callback' in self.menu[command]:
+                self.menu[command]['callback']()
+            elif command == "u":
+                return  # self.user_recordtart main() in the caller
+            elif command == "q":
+                sys.exit(0)
+            else:
+                error("Not yet implemented...")
 
 if __name__ == "__main__":
     # Temporary config-like handling.
