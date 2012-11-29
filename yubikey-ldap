@@ -3,6 +3,7 @@
 import sys
 import re
 import ldap
+import readline
 
 config_file = "yubikey-ldap.conf"
 
@@ -32,6 +33,33 @@ def fatal(message, exitcode = 1):
 def uid2dn(uid):
     return "%s=%s,%s" % (conf.uid_attr, uid, conf.base_dn)
 
+class LdapUidCompleter:
+    def __init__(self, ldap_con, conf):
+        self.words = []
+        self.prefix = None
+        self.ldap_con = ldap_con
+        self.conf = conf
+
+        readline.set_completer(self.complete)
+        readline.parse_and_bind("tab: complete")
+
+    def get_uids_for_prefix(self, prefix):
+        filterstr = "(uid=%s*)" % prefix
+        attrlist = [ 'uid' ]
+        res = self.ldap_con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
+        matches = [r[1]['uid'][0] for r in res]
+        return matches
+
+    def complete(self, prefix, index):
+        if prefix != self.prefix:
+            self.matching_words = self.get_uids_for_prefix(prefix)
+            self.prefix = prefix
+
+        try:
+            return self.matching_words[index]
+        except IndexError:
+            return None
+
 class YubiKeyManager(object):
     def __init__(self, conf):
         self.conf = conf
@@ -53,6 +81,8 @@ class YubiKeyManager(object):
             'u' : { 'label' : 'other user' },
             'q' : { 'label' : 'quit' },
         }
+
+        completer = LdapUidCompleter(self.con, self.conf)
 
     def cmd_add_yubikey(self):
         # Read YubiKey id, chop 12 chars
@@ -169,8 +199,9 @@ class YubiKeyManager(object):
         print
 
     def main(self):
-        user = raw_input("LDAP User to manage: ")
-        filterstr = "(|(uid=%(user)s*)(cn=%(user)s*))" % { "user" : user }
+        print "Enter username to manage (<tab> to autocomplete)"
+        user = raw_input("Username: ")
+        filterstr = "(uid=%s)" % (user)
         self.refresh_user_record(filterstr)
 
         while True:
