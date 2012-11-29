@@ -165,18 +165,20 @@ class YubiKeyManager(object):
             if cmd in cmds:
                 return cmd
 
-    def refresh_user_record(self, filterstr = None):
-        if not filterstr:
-            filterstr = "(uid=%(uid)s)" % self.user_record
+    def refresh_user_record(self, uid = None):
+        if not uid:
+            uid = self.user_record['uid']
+        uid_inval_chrs = re.search('([^\w\.\-])', uid)
+        if uid_inval_chrs:
+            error("Invalid characters in username: %s" % uid_inval_chrs.group(1))
+            return False
+        filterstr = "(uid=%s)" % uid
         attrlist = [ 'objectClass', 'uid', 'cn', 'yubiKeyId' ]
         res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         if not res:
-            error("Unknown user: %(uid)s" % self.user_record)
-            return
-        if len(res) > 1:
-            res = self.select_user(res)
-        else:
-            res = res[0]
+            error("Unknown user: %s" % uid)
+            return False
+        res = res[0]
 
         self.user_record = {
             'dn' : res[0],
@@ -185,6 +187,8 @@ class YubiKeyManager(object):
             'cn' : 'cn' in res[1] and res[1]['cn'][0] or '',
             'yubiKeyIds' : 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {},
         }
+
+        return True
 
     def display_user_info(self):
         print "%(cn)s [%(uid)s] has" % self.user_record,
@@ -201,8 +205,8 @@ class YubiKeyManager(object):
     def main(self):
         print "Enter username to manage (<tab> to autocomplete)"
         user = raw_input("Username: ")
-        filterstr = "(uid=%s)" % (user)
-        self.refresh_user_record(filterstr)
+        if not self.refresh_user_record(uid = user):
+            return
 
         while True:
             self.display_user_info()
