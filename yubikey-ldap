@@ -15,21 +15,50 @@ class conf(object):
     uid_attr = "uid"
     yubi_id_len = 12
 
+class bcolours:
+    YELLOW = '\033[93m'
+    WHITE = '\033[97m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    PURPLE = '\033[95m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    PROMPT = '\033[96m'
+    RESET = '\033[0m'
+
+    @staticmethod
+    def fmt(message, code):
+        return code + message + bcolours.RESET
+
+    @staticmethod
+    def prompt_fmt(message):
+        return bcolours.PROMPT + message + bcolours.RESET
+
+    @staticmethod
+    def header_fmt(message):
+        return bcolours.WHITE + message + bcolours.RESET
+
 def debug(message):
     print("DEBUG: %s" % message)
 
 def info(message):
-    print("INFO: %s" % message)
+    print(bcolours.BOLD + bcolours.fmt("INFO: ", bcolours.YELLOW) + bcolours.RESET + bcolours.fmt(message, bcolours.YELLOW))
 
 def warning(message):
-    print("WARNING: %s" % message)
+    print(bcolours.BOLD + bcolours.fmt("WARNING: ", bcolours.PURPLE) + bcolours.RESET + bcolours.fmt(message, bcolours.PURPLE))
 
 def error(message):
-    print("ERROR: %s" % message)
+    print(bcolours.BOLD + bcolours.fmt("ERROR: ", bcolours.RED) + bcolours.RESET + bcolours.fmt(message, bcolours.RED))
 
 def fatal(message, exitcode = 1):
-    print("FATAL: %s" % message)
+    print(bcolours.BOLD + bcolours.fmt("FATAL: ", bcolours.RED) + bcolours.RESET + bcolours.fmt(message, bcolours.RED))
     sys.exit(exitcode)
+
+def header(message):
+    print bcolours.header_fmt(message)
+
+def our_input(prompt, **kwargs):
+    return raw_input(bcolours.prompt_fmt(prompt), **kwargs)
 
 def uid2dn(uid):
     return "%s=%s,%s" % (conf.uid_attr, uid, conf.base_dn)
@@ -79,8 +108,7 @@ class YubiKeyManager(object):
         self.menu = {
             'a' : { 'label' : 'add', 'callback' : self.cmd_add_yubikey },
             'd' : { 'label' : 'delete', 'callback' : self.cmd_del_yubikey },
-            'u' : { 'label' : 'other user' },
-            'q' : { 'label' : 'quit' },
+            '\n' : { 'label' : 'change user' },
         }
 
         completer = LdapUidCompleter(self.con, self.conf)
@@ -88,25 +116,25 @@ class YubiKeyManager(object):
     def cmd_add_yubikey(self):
         # Read YubiKey id, chop conf.yubi_id_len chars
         while True:
-            print "\nEnter YubiKey ID (%d chars minimum, best way is to touch the key)" % self.conf.yubi_id_len
-            ykid = raw_input("YubiKey ID: ")
+            header("Enter YubiKey ID (%d chars minimum, best way is to touch the key)" % self.conf.yubi_id_len)
+            ykid = our_input("YubiKey ID: ")
             if not ykid:
                 return
-            if re.search('[^a-z]', ykid):
-                print "Invalid YubiKey ID. Please try again."
+            if not self.is_modhex(ykid):
+                warning("Invalid YubiKey ID. Please try again.")
                 continue
             if len(ykid) < conf.yubi_id_len:
-                print "YubiKey ID must be at least %d characters. Please try again." % conf.yubi_id_len
+                warning("YubiKey ID must be at least %d characters. Please try again." % conf.yubi_id_len)
                 continue
             ykid = ykid[:conf.yubi_id_len]
 
             # Check YubiKey id is already there if exists
             if ykid in self.user_record['yubiKeyIds']:
-                print "YubiKey '%s' is already assigned to '%s'. Please try again." % (ykid, self.user_record['uid'])
+                warning("YubiKey '%s' is already assigned to '%s'. Please try again." % (ykid, self.user_record['uid']))
                 continue
 
-            print "\nAssigning YubiKey '%s' to '%s'" % (ykid, self.user_record['uid'])
-            yesno = raw_input("Commit? [Y/n] ")
+            header("\nAssigning YubiKey '%s' to '%s'" % (ykid, self.user_record['uid']))
+            yesno = our_input("Commit? [Y/n] ")
             if yesno == '' or yesno[0] in ('y', 'Y'):
                 break
 
@@ -133,7 +161,7 @@ class YubiKeyManager(object):
         self.display_user_info()
         while True:
             print "Enter YubiKey or the index number. Enter when done. "
-            ykid = raw_input("YubiKey to Delete: ")
+            ykid = our_input("YubiKey to Delete: ")
             if not ykid:
                 break
             if ykid[:conf.yubi_id_len] in self.user_record['yubiKeyIds']:
@@ -162,7 +190,7 @@ class YubiKeyManager(object):
             return search_list[0]
         while True:
             try:
-                index = int(raw_input("Select user: "))
+                index = int(our_input("Select user: "))
                 if index < 1:
                     raise ValueError
                 return search_list[index-1]
@@ -170,12 +198,14 @@ class YubiKeyManager(object):
                 error("Invalid selection")
 
     def user_menu(self, cmds):
-        prompt = " / ".join(["(%s) %s" % (cmd, self.menu[cmd]['label']) for cmd in cmds])
-        prompt += ": "
+        prompt = " / ".join(["%s %s" % (cmd == '\n' and '<Enter>' or '(%s)' % cmd, self.menu[cmd]['label']) for cmd in cmds])
+        header(prompt)
         while True:
-            cmd = raw_input(prompt)
+            # Hack - we use '\n' in self.menu but raw_input() return empty string
+            cmd = our_input("Command: ") or '\n'
             if cmd in cmds:
                 return cmd
+            warning("Invalid command. Please try again.")
 
     def refresh_user_record(self, uid = None):
         if not uid:
@@ -203,13 +233,14 @@ class YubiKeyManager(object):
         return True
 
     def display_user_info(self):
-        print "%(cn)s [%(uid)s] has" % self.user_record,
+        headerstr = "%(cn)s [%(uid)s] has " % self.user_record
         if not self.user_record['yubiKeyIds']:
-            print "no assigned YubiKeys"
+            headerstr += "no assigned YubiKeys"
         elif len(self.user_record['yubiKeyIds']) == 1:
-            print "1 assigned YubiKey"
+            headerstr += "1 assigned YubiKey"
         else:
-            print "%d assigned YubiKeys" % len(self.user_record['yubiKeyIds'])
+            headerstr += "%d assigned YubiKeys" % len(self.user_record['yubiKeyIds'])
+        header(headerstr)
         for index in range(len(self.user_record['yubiKeyIds'])):
             print "% 3d)  %s" % (index + 1, self.user_record['yubiKeyIds'][index])
         print
@@ -219,7 +250,6 @@ class YubiKeyManager(object):
 
     def find_user_by_yubikey(self, inp):
         if not self.is_modhex(inp):
-            debug("%s id not modhex" % inp)
             return ''
         ykid = inp[:self.conf.yubi_id_len]
         filterstr = "(yubiKeyId=%s)" % ykid
@@ -227,13 +257,13 @@ class YubiKeyManager(object):
         res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         if not res:
             return ''
-        print "YubiKey '%s' is assigned to these users:" % ykid
+        header("YubiKey '%s' is assigned to these users:" % ykid)
         res = self.select_user(res)
         return res[1]['uid'][0]
 
     def main(self):
-        print "Enter username (<tab> to autocomplete) or YubiKey Id to manage"
-        inp = raw_input("Username or YubiKey: ")
+        header("\nEnter username (<tab> to autocomplete) or YubiKey Id to manage")
+        inp = our_input("Username or YubiKey: ")
 
         # Find user from YubiKey or use 'inp' as username
         user = self.find_user_by_yubikey(inp) or inp
@@ -244,17 +274,12 @@ class YubiKeyManager(object):
         while True:
             self.display_user_info()
 
-            command = self.user_menu(cmds = len(self.user_record['yubiKeyIds'])>0 and "aduq" or "auq")
-            if command not in self.menu:
-                warning("Invalid command. Please try again.")
-                continue
+            command = self.user_menu(cmds = len(self.user_record['yubiKeyIds'])>0 and "ad\n" or "a\n")
 
             if 'callback' in self.menu[command]:
                 self.menu[command]['callback']()
-            elif command == "u":
+            elif command.strip() == "":
                 return  # self.user_recordtart main() in the caller
-            elif command == "q":
-                sys.exit(0)
             else:
                 error("Not yet implemented...")
 
@@ -265,8 +290,12 @@ if __name__ == "__main__":
         execfile(config_file)
     except:
         fatal("Failure reading config file: %s" % config_file)
-    
+
     ykmgr = YubiKeyManager(conf)
+
+    print(bcolours.BOLD + "yubikey-ldap manager" + bcolours.RESET + " (written by Michal Ludvig)")
+    print(bcolours.YELLOW + "Use " + bcolours.BOLD + "Ctrl+D" + bcolours.RESET + bcolours.YELLOW + " to exit at any time")
+    print(bcolours.YELLOW + "Use " + bcolours.BOLD + "Enter" + bcolours.RESET + bcolours.YELLOW + " to return one level up")
 
     # Enter main loop
     while True:
