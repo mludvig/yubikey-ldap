@@ -1,0 +1,18 @@
+#
+# Sample yubikey-ldap.conf
+#
+
+# LDAP server URI
+conf.uri = "ldap://ldap.example.com"
+
+# Only simple authentication supported, no SASL yet
+conf.bind_dn = "cn=Manager,dc=example,dc=com"
+conf.bind_pw = "Secr3t"
+
+# Where are your user objects stored?
+conf.base_dn = "ou=People,dc=example,dc=com"
+
+# YubiKey output is very long and only a few chars
+# at the beginning is the ID we need to store in LDAP.
+# For YubiCloud authentication it's 12 chars.
+conf.yubi_id_len = 12
