@@ -13,6 +13,7 @@ class conf(object):
     bind_pw = ""
     base_dn = ""
     uid_attr = "uid"
+    yubi_id_len = 12
 
 def debug(message):
     print("DEBUG: %s" % message)
@@ -85,19 +86,19 @@ class YubiKeyManager(object):
         completer = LdapUidCompleter(self.con, self.conf)
 
     def cmd_add_yubikey(self):
-        # Read YubiKey id, chop 12 chars
+        # Read YubiKey id, chop conf.yubi_id_len chars
         while True:
-            print "\nEnter YubiKey ID (12 chars minimum, best way is to touch the key)"
+            print "\nEnter YubiKey ID (%d chars minimum, best way is to touch the key)" % self.conf.yubi_id_len
             ykid = raw_input("YubiKey ID: ")
             if not ykid:
                 return
             if re.search('[^a-z]', ykid):
                 print "Invalid YubiKey ID. Please try again."
                 continue
-            if len(ykid) < 12:
-                print "YubiKey ID must be at least 12 characters. Please try again."
+            if len(ykid) < conf.yubi_id_len:
+                print "YubiKey ID must be at least %d characters. Please try again." % conf.yubi_id_len
                 continue
-            ykid = ykid[:12]
+            ykid = ykid[:conf.yubi_id_len]
 
             # Check YubiKey id is already there if exists
             if ykid in self.user_record['yubiKeyIds']:
@@ -135,7 +136,7 @@ class YubiKeyManager(object):
             ykid = raw_input("YubiKey to Delete: ")
             if not ykid:
                 break
-            if ykid[:12] in self.user_record['yubiKeyIds']:
+            if ykid[:conf.yubi_id_len] in self.user_record['yubiKeyIds']:
                 _del_ykid(ykid)
             else:
                 try:
