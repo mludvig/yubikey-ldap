@@ -148,7 +148,18 @@ class YubiKeyManager(object):
 
     def select_user(self, search_list):
         for index in range(len(search_list)):
-            print "% 3d)  %s (%s)" % (index + 1, search_list[index][1]['uid'][0], search_list[index][1]['cn'][0])
+            try:
+                uid = search_list[index][1]['uid'][0]
+            except:
+                error("Invalid record: %r" % search_list[index])
+                continue
+            try:
+                cn = search_list[index][1]['cn'][0]
+            except:
+                cn = uid
+            print "% 3d)  %s (%s)" % (index + 1, cn, uid)
+        if len(search_list) == 1:
+            return search_list[0]
         while True:
             try:
                 index = int(raw_input("Select user: "))
@@ -203,9 +214,30 @@ class YubiKeyManager(object):
             print "% 3d)  %s" % (index + 1, self.user_record['yubiKeyIds'][index])
         print
 
+    def is_modhex(self, string):
+        return bool(re.match('^[b-lnrtuv]+\s*$', string))
+
+    def find_user_by_yubikey(self, inp):
+        if not self.is_modhex(inp):
+            debug("%s id not modhex" % inp)
+            return ''
+        ykid = inp[:self.conf.yubi_id_len]
+        filterstr = "(yubiKeyId=%s)" % ykid
+        attrlist = [ 'uid', 'cn' ]
+        res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
+        if not res:
+            return ''
+        print "YubiKey '%s' is assigned to these users:" % ykid
+        res = self.select_user(res)
+        return res[1]['uid'][0]
+
     def main(self):
-        print "Enter username to manage (<tab> to autocomplete)"
-        user = raw_input("Username: ")
+        print "Enter username (<tab> to autocomplete) or YubiKey Id to manage"
+        inp = raw_input("Username or YubiKey: ")
+
+        # Find user from YubiKey or use 'inp' as username
+        user = self.find_user_by_yubikey(inp) or inp
+
         if not self.refresh_user_record(uid = user):
             return
 
