@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+# yubikey-ldap - script for managing YubiKeys stored in LDAP
+# Author: Michal Ludvig - http://logix.cz/michal/devel/yubikey-ldap/
+#
+# Prereq:
+# - yubikey.schema installed in your LDAP server
+# - yubikey-ldap.conf configured (for now in the current directory)
+
 import sys
 import re
 import ldap

@@ -1,6 +1,8 @@
 #
 # Sample yubikey-ldap.conf
 #
+# Author: Michal Ludvig - http://logix.cz/michal/devel/yubikey-ldap/
+#
 
 # LDAP server URI
 conf.uri = "ldap://ldap.example.com"
