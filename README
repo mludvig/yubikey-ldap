@@ -1,0 +1,79 @@
+yubikey-ldap tool
+=================
+
+This tool simplifies the management of YubiKeys stored in LDAP
+for user authentication. It can easily do the following:
+
+* Add/Remove 'yubiKeyId' attribute to/from users
+* Search for users who have a yubiKeyId assigned
+
+That's about it, really :)
+
+Behind the scenes it does a little more to facilitate the above:
+
+* Autocompletes usernames
+* Adds 'yubiKeyUser' objectClass to the user's record before when needed
+
+YubiKey LDAP schema
+-------------------
+
+As a prerequisite the YubiKey LDAP schema must be installed in your
+server. Refer to 'ldap-schema/README' for more details.
+
+Configuration
+-------------
+
+At the moment the config file 'yubikey-ldap.conf' must be in your current
+working directory at the time you launch yubikey-ldap. Later on we will
+add some more intelligence and configurable config location.
+
+Use the provided 'yubikey-ldap.conf.sample' as a template.
+
+Example
+-------
+
+$HOME/yubikey-ldap # ./yubikey-ldap
+Use <Ctrl+D> to exit at any time
+Use <Enter> to return one level up
+
+Enter username (<tab> to autocomplete) or YubiKey Id to manage
+Username or YubiKey: test<TAB>
+Username or YubiKey: test.user
+
+Test User [test.user] has no assigned YubiKeys
+(a) add / <Enter> change user
+Command: a
+Enter YubiKey ID (12 chars minimum, best way is to touch the key)
+YubiKey ID: ccccccbhkiivinkrcvfkdkttbfjkhtvggnvdchfjkvgt
+
+Assigning YubiKey 'ccccccbhkiiv' to 'test.user'
+Commit? [Y/n] <Enter>
+
+Test User [test.user] has 1 assigned YubiKey
+  1)  ccccccbhkiiv
+(a) add / (d) delete / <Enter> change user
+Command: d
+Test User [test.user] has 1 assigned YubiKey
+  1)  ccccccbhkiiv
+
+Enter YubiKey or the index number. Enter when done.
+YubiKey to Delete: 1
+
+Test User [test.user] has no assigned YubiKeys
+(a) add / <Enter> change user
+Command: <Ctrl+D>
+
+$HOME/yubikey-ldap #
+
+Credits
+-------
+
+Have you found this tool useful?
+Please consider a small PayPal donation at:
+
+    http://logix.cz/michal/devel/yubikey-ldap/
+
+Thanks!
+
+Michal Ludvig <michal@logix.cz>
+
