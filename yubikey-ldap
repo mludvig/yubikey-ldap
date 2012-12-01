@@ -270,7 +270,10 @@ class YubiKeyManager(object):
 
     def main(self):
         header("\nEnter username (<tab> to autocomplete) or YubiKey Id to manage")
-        inp = our_input("Username or YubiKey: ")
+        while True:
+            inp = our_input("Username or YubiKey: ")
+            if inp:
+                break
 
         # Find user from YubiKey or use 'inp' as username
         user = self.find_user_by_yubikey(inp) or inp
