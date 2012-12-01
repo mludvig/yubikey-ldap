@@ -1,8 +1,8 @@
 YubiKey schema for LDAP
 =======================
 
-* What? Why?
-------------
+What? Why?
+----------
 
 PAM authentication with YubiKey requires a list of YubiKey IDs
 for each user who is allowed to login. Typically in the form of
@@ -47,8 +47,8 @@ _This_ is the way to keep the YubiKey IDs in LDAP. Not through
 exploiting some 'department' or 'favouriteColour' attribute, OMG!
 
 
-* Installation - OLC aka cn=config
-----------------------------------
+Installation - OLC aka cn=config
+--------------------------------
 
 Have you already migrated your LDAP server to OLC aka OnLine
 Configuration aka cn=schema? If you did your job is easy:
@@ -62,8 +62,8 @@ To be sure it worked check out this new file:
 /etc/openldap/slapd.d/cn=config/cn=schema/cn={*}yubikey.ldif
 
 
-* Installation - slapd.conf
----------------------------
+Installation - slapd.conf
+-------------------------
 
 If you are still using the ancient slapd.conf based config and
 can't be bothered to meet the 21st century, well, here are the
@@ -79,16 +79,16 @@ instructions:
 
 3) Restart the slapd daemon.
 
-* Installation - OpenDJ or Sun Directory Server
------------------------------------------------
+Installation - OpenDJ or Sun Directory Server
+---------------------------------------------
 
 Copy the yubikey-SunDS.ldif file under the schema directory
 <Instance>/config/schema/05-yubikey.ldif
 Restart the directory server.
 
 
-* Figure out the YubiKey ID
----------------------------
+Figure out the YubiKey ID
+-------------------------
 
 This is very simple - insert YubiKey to your USB slot, open a
 text editor and touch the key. You'll see something like:
@@ -100,8 +100,8 @@ The first 12 characters are the ID: abcdefgh1234
 Simple as that.
 
 
-* Storing the YubiKey IDs
--------------------------
+Storing the YubiKey IDs
+-----------------------
 
 Now that we've got the yubico schema installed it's time to
 store some keys. There are two steps involved:
@@ -150,8 +150,8 @@ Verify with ldapsearch:
           yubiKeyId: xyzxyz123456
 
 
-* Using it in PAM
------------------
+Using it in PAM
+---------------
 
 Again this change is very simple. Simply replace authfile= with
 the LDAP parameters, i.e. from:
@@ -171,8 +171,8 @@ password immediately followed by the YubiKey and you should be
 logged in :)
 
 
-* Troubleshooting
------------------
+Troubleshooting
+---------------
 
 If things don't quite work as expected check the following:
 
@@ -194,8 +194,8 @@ If things don't quite work as expected check the following:
   informations.
 
 
-* Credits
----------
+Credits
+-------
 
 Have you found this schema & document useful?
 Then consider a small PayPal donation at:
