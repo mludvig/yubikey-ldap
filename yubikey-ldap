@@ -109,7 +109,7 @@ class YubiKeyManager(object):
         except ldap.SERVER_DOWN:
             fatal("Connection error. Check conf.uri value.")
         except ldap.LDAPError, e:
-            fatal("%s" % e.args[0]["desc"])
+            fatal("%s %s" % (e.args[0]["desc"], "info" in e.args[0] and "- " + e.args[0]['info'] or ""))
 
         self.menu = {
             'a' : { 'label' : 'add', 'callback' : self.cmd_add_yubikey },
