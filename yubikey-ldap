@@ -19,6 +19,9 @@ class conf(object):
     bind_dn = ""
     bind_pw = ""
     base_dn = ""
+    start_tls = False
+    tls_cacertfile = ""
+    tls_cacertpath = ""
     yubi_id_len = 12
 
 class bcolours:
@@ -103,6 +106,14 @@ class YubiKeyManager(object):
         # Connect to the LDAP server
         try:
             self.con = ldap.initialize(conf.uri)
+            if conf.start_tls:
+                if conf.tls_cacertpath:
+                    self.con.set_option(ldap.OPT_X_TLS_CACERTPATH, conf.tls_cacertpath)
+                if conf.tls_cacertfile:
+                    self.con.set_option(ldap.OPT_X_TLS_CACERTFILE, conf.tls_cacertfile)
+                self.con.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND)
+                self.con.start_tls_s()
+                debug("STARTTLS succeeded. The connection is now secured.")
             self.con.bind_s(conf.bind_dn, conf.bind_pw, ldap.AUTH_SIMPLE)
         except ldap.INVALID_CREDENTIALS:
             fatal("Invalid credentials. Check bind_dn [%s] and bind_pw [%s] values." % (conf.bind_dn, conf.bind_pw))

@@ -7,6 +7,15 @@
 # LDAP server URI
 conf.uri = "ldap://ldap.example.com"
 
+# Start TLS
+# (default is False, however True is recommended)
+conf.start_tls = True
+
+# TLS CA Certificates
+# By default the values from system ldap.conf are used
+#conf.tls_cacertpath = "/etc/pki/tls/certs"
+#conf.tls_cacertfile = "/etc/pki/tls/certs/ca-bundle.pem"
+
 # Only simple authentication supported, no SASL yet
 conf.bind_dn = "cn=Manager,dc=example,dc=com"
 conf.bind_pw = "Secr3t"
