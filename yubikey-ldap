@@ -19,7 +19,6 @@ class conf(object):
     bind_dn = ""
     bind_pw = ""
     base_dn = ""
-    uid_attr = "uid"
     yubi_id_len = 12
 
 class bcolours:
@@ -68,7 +67,7 @@ def our_input(prompt, **kwargs):
     return raw_input(bcolours.prompt_fmt(prompt), **kwargs)
 
 def uid2dn(uid):
-    return "%s=%s,%s" % (conf.uid_attr, uid, conf.base_dn)
+    return "uid=%s,%s" % (uid, conf.base_dn)
 
 class LdapUidCompleter:
     def __init__(self, ldap_con, conf):
