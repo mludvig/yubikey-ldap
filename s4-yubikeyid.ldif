@@ -3,7 +3,7 @@
 #   By David Latham <david-latham.blogspot.com>
 # Install with:
 #     ldbadd -H /usr/local/samba/private/sam.ldb \
-#     yubikeyid.lidf \
+#     s4-yubikeyid.lidf \
 #     --option="dsdb:schema update allowed"=true
 #
 dn: CN=yubiKeyId,CN=Schema,CN=Configuration,dc=samba4,dc=internal
