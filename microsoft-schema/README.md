@@ -21,15 +21,17 @@ Log into a Windows Server 2003 as a domain administrator and start a
 command prompt.
 
 Then execute:
-    ldifde -i -f path\to\yubikey-ads.ldif -j .
+
+    ldifde -i -f path\to\ms-yubikey.ldif -j .
 
 You should see something like:
+
     6 entries modified successfully
    
     The command has completed successfully
 
-To test if this is all working you could add some kuys using the ADSI Edit
-snap-in. 
+To test if this is all working you could add some kuys using the ADSI Edit snap-in.
+
 * Browse to your Domain -> CN=Users
 * Right mouse click the username you want to edit
 * Select Properties

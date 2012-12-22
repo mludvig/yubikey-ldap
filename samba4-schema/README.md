@@ -23,9 +23,8 @@ yubikeyid.ldif
     isSingleValued: FALSE
 
 Add the yubiKeyId attribute into the Schema Configuration first with:
-    ldbadd -H /usr/local/samba/private/sam.ldb \
-      yubikeyid.lidf \
-      --option="dsdb:schema update allowed"=true
+
+    ldbadd -H /usr/local/samba/private/sam.ldb s4-yubikeyid.lidf --option="dsdb:schema update allowed"=true
 
 yubikeyuser.ldif
 ----------------
@@ -43,9 +42,8 @@ yubikeyuser.ldif
     mayContain: yubiKeyId
 
 Next add the yubiKeyUser class into the Schema Configuration with:
-    ldbadd -H /usr/local/samba/private/sam.ldb \
-      yubikeyuser.lidf \
-      --option="dsdb:schema update allowed"=true
+
+    ldbadd -H /usr/local/samba/private/sam.ldb s4-yubikeyuser.lidf --option="dsdb:schema update allowed"=true
 
 updateUserClass.ldif
 --------------------
@@ -55,13 +53,13 @@ updateUserClass.ldif
     auxiliaryClass: yubiKeyUser
 
 Apply the User class update with:
-    ldbmodify -H /usr/local/samba/private/sam.ldb \
-      updateUserClass.ldif \
-      --option="dsdb:schema update allowed"=true
+
+    ldbmodify -H /usr/local/samba/private/sam.ldb s4-updateUserClass.ldif --option="dsdb:schema update allowed"=true
 
 Add YubiKeys to Users
 ---------------------
 An example ldif:
+
     dn: CN=David Latham,CN=Users,DC=samba4,DC=internal
     changetype: modify
     add: objectClass
@@ -72,9 +70,11 @@ An example ldif:
     yubiKeyId: xyzxyz123456
 
 Apply it with:
+
     ldapmodify -h samba -f addKeyToUser.ldif
 
 Test it with:
+
     ldapsearch -h samba -b "CN=David Latham,CN=Users,DC=samba4,DC=internal" yubiKeyId
 
     SASL/GSSAPI authentication started
