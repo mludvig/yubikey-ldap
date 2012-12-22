@@ -4,16 +4,13 @@ This is an implimentation of the Openldap implimentation by Michal Ludvig <http:
 
 Notes
 -----
-In order to manage the Schema from a Windows client, please add the following line to your smb.conf under the [globals] section and restart samba4:
-
-    dsdb:schema update allowed = true
 
 You can use tools like ADSI Edit to manage the keys for users.
 There are also tutorials on the internet explaining how to crate a dialogue box / context menu tool for updating custom attributes in the Active Directory Server Admin tool. (dsa.msc)
 
 For a complete tutorial on all of this look at:
     <http://www.informit.com/articles/article.aspx?p=169630&seqNum=1>
-   
+
 Implimentation
 --------------
 
@@ -39,3 +36,9 @@ To test if this is all working you could add some kuys using the ADSI Edit snap-
 * Click Edit
 * Add values until you are done
 * Click OK until you are finished.
+
+Tested
+------
+
+1. This ldif was successfully imported into a Samba4 AD from a Windows Server 2003 R2 Client.
+2. This ldif was successfully imported into a Windows Server 2003 R2 Active Directory Domain. (IE: No Samba4 or Linux in site.)
