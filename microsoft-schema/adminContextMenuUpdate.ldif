@@ -1,0 +1,24 @@
+# updateAdminContextMenu.ldif
+#
+# This ldif adds an entry into the Admin Context Menu on the US-English Display
+# sepcifier (CN=409) on User entries in ADUC.  The context menu calls yubikeyid.vbs
+# that in-turn is used to add yubiKeyIds to the User.
+#
+# Implimentation:
+#    ldifde -i -f updateAdminContextMenu.ldif -j .
+#
+# Author: David Latham
+#    <david-latham.blogspot.com>
+#
+#   
+dn: CN=User-Display,CN=409,CN=DisplaySpecifiers,CN=Configuration,DC=LATHAM,DC=INTERNAL
+changetype: modify
+add: adminContextMenu
+adminContextMenu: 100,yubiKeyId,c:\yubikeyid.vbs
+-
+
+dn:
+changetype: modify
+add: schemaUpdateNow
+schemaUpdateNow: 1
+-
