@@ -1,0 +1,20 @@
+# yubiKeyId Schema Attribute for Samba4 Active Directory
+# Ported from mludvig/yubikey-ldap and includes the logixOID
+#   By David Latham <david-latham.blogspot.com>
+# Install with:
+#     ldbadd -H /usr/local/samba/private/sam.ldb \
+#     s4-yubikeyid.lidf \
+#     --option="dsdb:schema update allowed"=true
+#
+dn: CN=yubiKeyId,CN=Schema,CN=Configuration,dc=samba4,dc=internal
+changetype: add
+objectClass: top
+objectClass: attributeSchema
+attributeID: 1.3.6.1.4.1.40789.2012.11.1.2.1.1
+cn: yubiKeyId
+name: yubiKeyId
+lDAPDisplayName: yubiKeyId
+description: Yubico YubiKey ID
+attributeSyntax: 2.5.5.5
+oMSyntax: 22
+isSingleValued: FALSE
