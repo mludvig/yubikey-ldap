@@ -190,6 +190,9 @@ class YubiKeyManager(object):
                     _del_ykid(ykid)
                 except:
                     continue
+            if not self.user_record['yubiKeyIds']:
+                print "No more YubiKey IDs assigned to %(cn)s [%(uid)s]" % self.user_record
+                break
 
     def select_user(self, search_list):
         for index in range(len(search_list)):
