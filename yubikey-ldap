@@ -182,7 +182,7 @@ class YubiKeyManager(object):
             if not ykid:
                 break
             if ykid[:conf.yubi_id_len] in self.user_record['yubiKeyIds']:
-                _del_ykid(ykid)
+                _del_ykid(ykid[:conf.yubi_id_len])
             else:
                 try:
                     index = int(ykid) - 1
