@@ -11,6 +11,7 @@ import sys
 import re
 import ldap
 import readline
+import getpass
 
 config_file = "yubikey-ldap.conf"
 
@@ -313,6 +314,12 @@ if __name__ == "__main__":
         execfile(config_file)
     except:
         fatal("Failure reading config file: %s" % config_file)
+    try:
+        conf.bind_pw = getpass.getpass("LDAP Password: ")
+        if len(conf.bind_pw) == 0:
+          raise Exception
+    except Exception:
+        fatal("No password provided")
 
     ykmgr = YubiKeyManager(conf)
 

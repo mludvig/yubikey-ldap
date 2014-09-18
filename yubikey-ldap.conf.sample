@@ -18,7 +18,6 @@ conf.start_tls = True
 
 # Only simple authentication supported, no SASL yet
 conf.bind_dn = "cn=Manager,dc=example,dc=com"
-conf.bind_pw = "Secr3t"
 
 # Where are your user objects stored?
 conf.base_dn = "ou=People,dc=example,dc=com"
