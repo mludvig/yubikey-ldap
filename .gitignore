@@ -1,5 +1,6 @@
 # Local config file
 yubikey-ldap.conf
+ca-pardot.crt
 
 # compiled Python modules
 *.py[co]
