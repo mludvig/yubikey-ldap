@@ -29,6 +29,12 @@ add some more intelligence and configurable config location.
 
 Use the provided 'yubikey-ldap.conf.sample' as a template.
 
+LDAP Password
+-------------
+
+The LDAP bind password is not stored in the configuration.  The script 
+will prompt for the password during startup. 
+
 Example
 -------
 

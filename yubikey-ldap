@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # yubikey-ldap - script for managing YubiKeys stored in LDAP
 # Author: Michal Ludvig - http://logix.cz/michal/devel/yubikey-ldap/
@@ -7,12 +7,15 @@
 # - yubikey.schema installed in your LDAP server
 # - yubikey-ldap.conf configured (for now in the current directory)
 
-import sys
+import getpass
 import re
-import ldap
 import readline
+import sys
+
+import ldap
 
 config_file = "yubikey-ldap.conf"
+
 
 class conf(object):
     uri = ""
@@ -24,7 +27,8 @@ class conf(object):
     tls_cacertpath = ""
     yubi_id_len = 12
 
-class bcolours:
+
+class BColours:
     YELLOW = '\033[93m'
     WHITE = '\033[97m'
     OKBLUE = '\033[94m'
@@ -37,43 +41,55 @@ class bcolours:
 
     @staticmethod
     def fmt(message, code):
-        return code + message + bcolours.RESET
+        return code + message + BColours.RESET
 
     @staticmethod
     def prompt_fmt(message):
-        return bcolours.PROMPT + message + bcolours.RESET
+        return BColours.PROMPT + message + BColours.RESET
 
     @staticmethod
     def header_fmt(message):
-        return bcolours.WHITE + message + bcolours.RESET
+        return BColours.WHITE + message + BColours.RESET
+
 
 def debug(message):
     print("DEBUG: %s" % message)
 
+
 def info(message):
-    print(bcolours.BOLD + bcolours.fmt("INFO: ", bcolours.YELLOW) + bcolours.RESET + bcolours.fmt(message, bcolours.YELLOW))
+    print(BColours.BOLD + BColours.fmt("INFO: ", BColours.YELLOW) + BColours.RESET + BColours.fmt(message,
+                                                                                                  BColours.YELLOW))
+
 
 def warning(message):
-    print(bcolours.BOLD + bcolours.fmt("WARNING: ", bcolours.PURPLE) + bcolours.RESET + bcolours.fmt(message, bcolours.PURPLE))
+    print(BColours.BOLD + BColours.fmt("WARNING: ", BColours.PURPLE) + BColours.RESET + BColours.fmt(message,
+                                                                                                     BColours.PURPLE))
+
 
 def error(message):
-    print(bcolours.BOLD + bcolours.fmt("ERROR: ", bcolours.RED) + bcolours.RESET + bcolours.fmt(message, bcolours.RED))
+    print(BColours.BOLD + BColours.fmt("ERROR: ", BColours.RED) + BColours.RESET + BColours.fmt(message, BColours.RED))
 
-def fatal(message, exitcode = 1):
-    print(bcolours.BOLD + bcolours.fmt("FATAL: ", bcolours.RED) + bcolours.RESET + bcolours.fmt(message, bcolours.RED))
+
+def fatal(message, exitcode=1):
+    print(BColours.BOLD + BColours.fmt("FATAL: ", BColours.RED) + BColours.RESET + BColours.fmt(message, BColours.RED))
     sys.exit(exitcode)
 
-def header(message):
-    print bcolours.header_fmt(message)
 
-def our_input(prompt, **kwargs):
-    return raw_input(bcolours.prompt_fmt(prompt), **kwargs)
+def header(message):
+    print(BColours.header_fmt(message))
+
+
+def our_input(prompt):
+    return input(BColours.prompt_fmt(prompt))
+
 
 def uid2dn(uid):
     return "uid=%s,%s" % (uid, conf.base_dn)
 
+
 class LdapUidCompleter:
     def __init__(self, ldap_con, conf):
+        self.matching_words = None
         self.words = []
         self.prefix = None
         self.ldap_con = ldap_con
@@ -84,9 +100,10 @@ class LdapUidCompleter:
 
     def get_uids_for_prefix(self, prefix):
         filterstr = "(uid=%s*)" % prefix
-        attrlist = [ 'uid' ]
+        attrlist = ['uid']
         res = self.ldap_con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         matches = [r[1]['uid'][0] for r in res]
+        matches = [m.decode("UTF-8") for m in matches]
         return matches
 
     def complete(self, prefix, index):
@@ -99,36 +116,43 @@ class LdapUidCompleter:
         except IndexError:
             return None
 
+
 class YubiKeyManager(object):
-    def __init__(self, conf):
-        self.conf = conf
+    def __init__(self, config):
+        self.user_record = None
+        self.conf = config
 
         # Connect to the LDAP server
         try:
-            self.con = ldap.initialize(conf.uri)
-            if conf.start_tls:
-                if conf.tls_cacertpath:
-                    self.con.set_option(ldap.OPT_X_TLS_CACERTPATH, conf.tls_cacertpath)
-                if conf.tls_cacertfile:
-                    self.con.set_option(ldap.OPT_X_TLS_CACERTFILE, conf.tls_cacertfile)
+            self.con = ldap.initialize(config.uri)
+            if config.start_tls:
+                if config.tls_cacertpath:
+                    self.con.set_option(ldap.OPT_X_TLS_CACERTDIR, config.tls_cacertpath)
+                if config.tls_cacertfile:
+                    self.con.set_option(ldap.OPT_X_TLS_CACERTFILE, config.tls_cacertfile)
                 self.con.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND)
                 self.con.start_tls_s()
                 debug("STARTTLS succeeded. The connection is now secured.")
-            self.con.bind_s(conf.bind_dn, conf.bind_pw, ldap.AUTH_SIMPLE)
+            self.con.bind_s(config.bind_dn, config.bind_pw, ldap.AUTH_SIMPLE)
         except ldap.INVALID_CREDENTIALS:
-            fatal("Invalid credentials. Check bind_dn [%s] and bind_pw [%s] values." % (conf.bind_dn, conf.bind_pw))
+            fatal("Invalid credentials. Check bind_dn [%s] and bind_pw [%s] values." % (config.bind_dn, config.bind_pw))
         except ldap.SERVER_DOWN:
             fatal("Connection error. Check conf.uri value.")
-        except ldap.LDAPError, e:
+        except ldap.LDAPError as e:
             fatal("%s %s" % (e.args[0]["desc"], "info" in e.args[0] and "- " + e.args[0]['info'] or ""))
 
         self.menu = {
-            'a' : { 'label' : 'add', 'callback' : self.cmd_add_yubikey },
-            'd' : { 'label' : 'delete', 'callback' : self.cmd_del_yubikey },
-            '\n' : { 'label' : 'change user' },
+            'a': {'label': 'add', 'callback': self.cmd_add_yubikey},
+            'd': {'label': 'delete', 'callback': self.cmd_del_yubikey},
+            '\n': {'label': 'change user'},
         }
 
         completer = LdapUidCompleter(self.con, self.conf)
+        if 'libedit' in readline.__doc__:
+            readline.parse_and_bind("bind ^I rl_complete")
+        else:
+            readline.parse_and_bind("tab: complete")
+        readline.set_completer(completer.complete)
 
     def cmd_add_yubikey(self):
         # Read YubiKey id, chop conf.yubi_id_len chars
@@ -156,28 +180,36 @@ class YubiKeyManager(object):
                 break
 
         # Check yubiKeyUser objectClass and Add if doesn't exist
-        if 'yubiKeyUser' not in self.user_record['objectClasses']:
+        if b'yubiKeyUser' not in self.user_record['objectClasses']:
             debug("Adding objectClass:yubiKeyUser to dn:%(dn)s" % self.user_record)
-            mod_attrs = [( ldap.MOD_ADD, 'objectClass', 'yubiKeyUser' )]
+            mod_attrs = [(ldap.MOD_ADD, 'objectClass', b'yubiKeyUser')]
             self.con.modify_s(self.user_record['dn'], mod_attrs)
             self.refresh_user_record()
 
         # Save yubiKey data to LDAP
         debug("Adding yubiKeyId:%s to dn:%s" % (ykid, self.user_record['dn']))
-        mod_attrs = [( ldap.MOD_ADD, 'yubiKeyId', ykid)]
+        mod_attrs = [(ldap.MOD_ADD, 'yubiKeyId', ykid.encode("utf-8"))]
         self.con.modify_s(self.user_record['dn'], mod_attrs)
         self.refresh_user_record()
 
     def cmd_del_yubikey(self):
-        def _del_ykid(ykid):
-            debug("Removing yubiKeyId:%s from dn:%s" % (ykid, self.user_record['dn']))
-            mod_attrs = [( ldap.MOD_DELETE, 'yubiKeyId', ykid)]
+        def _del_ykid(yubi_key_id):
+            debug("Removing yubiKeyId:%s from dn:%s" % (yubi_key_id, self.user_record['dn']))
+            if type(yubi_key_id) is str:
+                yubi_key_id = yubi_key_id.encode("UTF-8")
+            mod_attrs = [(ldap.MOD_DELETE, 'yubiKeyId', yubi_key_id)]
+            self.con.modify_s(self.user_record['dn'], mod_attrs)
+            self.refresh_user_record()
+
+        def _del_yk_obj_class():
+            debug('No more keys assigned. Removing ldap object_class')
+            mod_attrs = [(ldap.MOD_DELETE, 'objectClass', b'yubiKeyUser')]
             self.con.modify_s(self.user_record['dn'], mod_attrs)
             self.refresh_user_record()
 
         self.display_user_info()
         while True:
-            print "Enter YubiKey or the index number. Enter when done. "
+            print("Enter YubiKey or the index number. Enter when done. ")
             ykid = our_input("YubiKey to Delete: ")
             if not ykid:
                 break
@@ -188,13 +220,15 @@ class YubiKeyManager(object):
                     index = int(ykid) - 1
                     ykid = self.user_record['yubiKeyIds'][index]
                     _del_ykid(ykid)
-                except:
+                except Exception:
                     continue
             if not self.user_record['yubiKeyIds']:
-                print "No more YubiKey IDs assigned to %(cn)s [%(uid)s]" % self.user_record
+                print("No more YubiKey IDs assigned to %(cn)s [%(uid)s]" % self.user_record)
+                _del_yk_obj_class()
                 break
 
-    def select_user(self, search_list):
+    @staticmethod
+    def select_user(search_list):
         for index in range(len(search_list)):
             try:
                 uid = search_list[index][1]['uid'][0]
@@ -205,7 +239,7 @@ class YubiKeyManager(object):
                 cn = search_list[index][1]['cn'][0]
             except:
                 cn = uid
-            print "% 3d)  %s (%s)" % (index + 1, cn, uid)
+            print("% 3d)  %s (%s)" % (index + 1, cn, uid))
         if len(search_list) == 1:
             return search_list[0]
         while True:
@@ -213,12 +247,13 @@ class YubiKeyManager(object):
                 index = int(our_input("Select user: "))
                 if index < 1:
                     raise ValueError
-                return search_list[index-1]
+                return search_list[index - 1]
             except (ValueError, IndexError):
                 error("Invalid selection")
 
     def user_menu(self, cmds):
-        prompt = " / ".join(["%s %s" % (cmd == '\n' and '<Enter>' or '(%s)' % cmd, self.menu[cmd]['label']) for cmd in cmds])
+        prompt = " / ".join(
+            ["%s %s" % (cmd == '\n' and '<Enter>' or '(%s)' % cmd, self.menu[cmd]['label']) for cmd in cmds])
         header(prompt)
         while True:
             # Hack - we use '\n' in self.menu but raw_input() return empty string
@@ -227,15 +262,17 @@ class YubiKeyManager(object):
                 return cmd
             warning("Invalid command. Please try again.")
 
-    def refresh_user_record(self, uid = None):
+    def refresh_user_record(self, uid=None):
         if not uid:
             uid = self.user_record['uid']
-        uid_inval_chrs = re.search('([^\w\.\-])', uid)
-        if uid_inval_chrs:
-            error("Invalid characters in username: %s" % uid_inval_chrs.group(1))
+        if type(uid) is bytes:
+            uid = uid.decode('UTF-8')
+        valid_username = re.search(r'^[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$', uid)
+        if not valid_username:
+            error("Invalid characters in username: %s" % uid)
             return False
         filterstr = "(uid=%s)" % uid
-        attrlist = [ 'objectClass', 'uid', 'cn', 'yubiKeyId' ]
+        attrlist = ['objectClass', 'uid', 'cn', 'yubiKeyId']
         res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         if not res:
             error("Unknown user: %s" % uid)
@@ -243,11 +280,11 @@ class YubiKeyManager(object):
         res = res[0]
 
         self.user_record = {
-            'dn' : res[0],
-            'objectClasses' : res[1]['objectClass'],
-            'uid' : res[1]['uid'][0],
-            'cn' : 'cn' in res[1] and res[1]['cn'][0] or '',
-            'yubiKeyIds' : 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {},
+            'dn': res[0],
+            'objectClasses': res[1]['objectClass'],
+            'uid': res[1]['uid'][0],
+            'cn': 'cn' in res[1] and res[1]['cn'][0] or '',
+            'yubiKeyIds': 'yubiKeyId' in res[1] and res[1]['yubiKeyId'] or {},
         }
 
         return True
@@ -262,18 +299,19 @@ class YubiKeyManager(object):
             headerstr += "%d assigned YubiKeys" % len(self.user_record['yubiKeyIds'])
         header(headerstr)
         for index in range(len(self.user_record['yubiKeyIds'])):
-            print "% 3d)  %s" % (index + 1, self.user_record['yubiKeyIds'][index])
-        print
+            print("% 3d)  %s" % (index + 1, self.user_record['yubiKeyIds'][index]))
+        print()
 
-    def is_modhex(self, string):
-        return bool(re.match('^[b-lnrtuv]+\s*$', string))
+    @staticmethod
+    def is_modhex(string):
+        return bool(re.match(r'^[b-lnrtuv]+\s*$', string))
 
     def find_user_by_yubikey(self, inp):
         if not self.is_modhex(inp):
             return ''
         ykid = inp[:self.conf.yubi_id_len]
         filterstr = "(yubiKeyId=%s)" % ykid
-        attrlist = [ 'uid', 'cn' ]
+        attrlist = ['uid', 'cn']
         res = self.con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         if not res:
             return ''
@@ -291,13 +329,13 @@ class YubiKeyManager(object):
         # Find user from YubiKey or use 'inp' as username
         user = self.find_user_by_yubikey(inp) or inp
 
-        if not self.refresh_user_record(uid = user):
+        if not self.refresh_user_record(uid=user):
             return
 
         while True:
             self.display_user_info()
 
-            command = self.user_menu(cmds = len(self.user_record['yubiKeyIds'])>0 and "ad\n" or "a\n")
+            command = self.user_menu(cmds=len(self.user_record['yubiKeyIds']) > 0 and "ad\n" or "a\n")
 
             if 'callback' in self.menu[command]:
                 self.menu[command]['callback']()
@@ -306,27 +344,38 @@ class YubiKeyManager(object):
             else:
                 error("Not yet implemented...")
 
+
 if __name__ == "__main__":
     # Temporary config-like handling.
     # We'll do better later.
     try:
-        execfile(config_file)
-    except:
+        exec(open(config_file).read())
+    except Exception as e:
+        debug(e)
         fatal("Failure reading config file: %s" % config_file)
+    if not conf.bind_pw:
+        try:
+            conf.bind_pw = getpass.getpass("LDAP Password: ")
+            if len(conf.bind_pw) == 0:
+                raise Exception
+        except Exception:
+            fatal("No password provided")
 
     ykmgr = YubiKeyManager(conf)
 
-    print(bcolours.BOLD + "yubikey-ldap manager" + bcolours.RESET + " (written by Michal Ludvig)")
-    print(bcolours.YELLOW + "Use " + bcolours.BOLD + "Ctrl+D" + bcolours.RESET + bcolours.YELLOW + " to exit at any time")
-    print(bcolours.YELLOW + "Use " + bcolours.BOLD + "Enter" + bcolours.RESET + bcolours.YELLOW + " to return one level up")
+    print(BColours.BOLD + "yubikey-ldap manager" + BColours.RESET + " (written by Michal Ludvig)")
+    print(
+        BColours.YELLOW + "Use " + BColours.BOLD + "Ctrl+D" + BColours.RESET + BColours.YELLOW + " to exit at any time")
+    print(
+        BColours.YELLOW + "Use " + BColours.BOLD + "Enter" + BColours.RESET + BColours.YELLOW + " to return one level up")
 
     # Enter main loop
     while True:
         try:
             ykmgr.main()
         except (KeyboardInterrupt, EOFError):
-            print "\n"
+            print("\n")
             break
 
-    #con.unbind_s()
-    #print con.whoami_s()
+    # con.unbind_s()
+    # print con.whoami_s()
