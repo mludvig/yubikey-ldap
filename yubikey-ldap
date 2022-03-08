@@ -17,7 +17,7 @@ import ldap
 config_file = "yubikey-ldap.conf"
 
 
-class Conf(object):
+class conf(object):
     uri = ""
     bind_dn = ""
     bind_pw = ""
@@ -84,7 +84,7 @@ def our_input(prompt):
 
 
 def uid2dn(uid):
-    return "uid=%s,%s" % (uid, Conf.base_dn)
+    return "uid=%s,%s" % (uid, conf.base_dn)
 
 
 class LdapUidCompleter:
@@ -103,6 +103,7 @@ class LdapUidCompleter:
         attrlist = ['uid']
         res = self.ldap_con.search_s(self.conf.base_dn, ldap.SCOPE_SUBTREE, filterstr, attrlist)
         matches = [r[1]['uid'][0] for r in res]
+        matches = [m.decode("UTF-8") for m in matches]
         return matches
 
     def complete(self, prefix, index):
@@ -117,24 +118,24 @@ class LdapUidCompleter:
 
 
 class YubiKeyManager(object):
-    def __init__(self, conf):
+    def __init__(self, config):
         self.user_record = None
-        self.conf = conf
+        self.conf = config
 
         # Connect to the LDAP server
         try:
-            self.con = ldap.initialize(conf.uri)
-            if conf.start_tls:
-                if conf.tls_cacertpath:
-                    self.con.set_option(ldap.OPT_X_TLS_CACERTDIR, conf.tls_cacertpath)
-                if conf.tls_cacertfile:
-                    self.con.set_option(ldap.OPT_X_TLS_CACERTFILE, conf.tls_cacertfile)
+            self.con = ldap.initialize(config.uri)
+            if config.start_tls:
+                if config.tls_cacertpath:
+                    self.con.set_option(ldap.OPT_X_TLS_CACERTDIR, config.tls_cacertpath)
+                if config.tls_cacertfile:
+                    self.con.set_option(ldap.OPT_X_TLS_CACERTFILE, config.tls_cacertfile)
                 self.con.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND)
                 self.con.start_tls_s()
                 debug("STARTTLS succeeded. The connection is now secured.")
-            self.con.bind_s(conf.bind_dn, conf.bind_pw, ldap.AUTH_SIMPLE)
+            self.con.bind_s(config.bind_dn, config.bind_pw, ldap.AUTH_SIMPLE)
         except ldap.INVALID_CREDENTIALS:
-            fatal("Invalid credentials. Check bind_dn [%s] and bind_pw [%s] values." % (conf.bind_dn, conf.bind_pw))
+            fatal("Invalid credentials. Check bind_dn [%s] and bind_pw [%s] values." % (config.bind_dn, config.bind_pw))
         except ldap.SERVER_DOWN:
             fatal("Connection error. Check conf.uri value.")
         except ldap.LDAPError as e:
@@ -147,6 +148,11 @@ class YubiKeyManager(object):
         }
 
         completer = LdapUidCompleter(self.con, self.conf)
+        if 'libedit' in readline.__doc__:
+            readline.parse_and_bind("bind ^I rl_complete")
+        else:
+            readline.parse_and_bind("tab: complete")
+        readline.set_completer(completer.complete)
 
     def cmd_add_yubikey(self):
         # Read YubiKey id, chop conf.yubi_id_len chars
@@ -158,10 +164,10 @@ class YubiKeyManager(object):
             if not self.is_modhex(ykid):
                 warning("Invalid YubiKey ID. Please try again.")
                 continue
-            if len(ykid) < Conf.yubi_id_len:
-                warning("YubiKey ID must be at least %d characters. Please try again." % Conf.yubi_id_len)
+            if len(ykid) < conf.yubi_id_len:
+                warning("YubiKey ID must be at least %d characters. Please try again." % conf.yubi_id_len)
                 continue
-            ykid = ykid[:Conf.yubi_id_len]
+            ykid = ykid[:conf.yubi_id_len]
 
             # Check YubiKey id is already there if exists
             if ykid in self.user_record['yubiKeyIds']:
@@ -195,23 +201,30 @@ class YubiKeyManager(object):
             self.con.modify_s(self.user_record['dn'], mod_attrs)
             self.refresh_user_record()
 
+        def _del_yk_obj_class():
+            debug('No more keys assigned. Removing ldap object_class')
+            mod_attrs = [(ldap.MOD_DELETE, 'objectClass', b'yubiKeyUser')]
+            self.con.modify_s(self.user_record['dn'], mod_attrs)
+            self.refresh_user_record()
+
         self.display_user_info()
         while True:
             print("Enter YubiKey or the index number. Enter when done. ")
             ykid = our_input("YubiKey to Delete: ")
             if not ykid:
                 break
-            if ykid[:Conf.yubi_id_len] in self.user_record['yubiKeyIds']:
-                _del_ykid(ykid[:Conf.yubi_id_len])
+            if ykid[:conf.yubi_id_len] in self.user_record['yubiKeyIds']:
+                _del_ykid(ykid[:conf.yubi_id_len])
             else:
                 try:
                     index = int(ykid) - 1
                     ykid = self.user_record['yubiKeyIds'][index]
                     _del_ykid(ykid)
-                except:
+                except Exception:
                     continue
             if not self.user_record['yubiKeyIds']:
                 print("No more YubiKey IDs assigned to %(cn)s [%(uid)s]" % self.user_record)
+                _del_yk_obj_class()
                 break
 
     @staticmethod
@@ -252,9 +265,7 @@ class YubiKeyManager(object):
     def refresh_user_record(self, uid=None):
         if not uid:
             uid = self.user_record['uid']
-        debug(uid)
         if type(uid) is bytes:
-            debug("Converting to string")
             uid = uid.decode('UTF-8')
         valid_username = re.search(r'^[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$', uid)
         if not valid_username:
@@ -339,16 +350,18 @@ if __name__ == "__main__":
     # We'll do better later.
     try:
         exec(open(config_file).read())
-    except:
+    except Exception as e:
+        debug(e)
         fatal("Failure reading config file: %s" % config_file)
-    try:
-        Conf.bind_pw = getpass.getpass("LDAP Password: ")
-        if len(Conf.bind_pw) == 0:
-            raise Exception
-    except Exception:
-        fatal("No password provided")
+    if not conf.bind_pw:
+        try:
+            conf.bind_pw = getpass.getpass("LDAP Password: ")
+            if len(conf.bind_pw) == 0:
+                raise Exception
+        except Exception:
+            fatal("No password provided")
 
-    ykmgr = YubiKeyManager(Conf)
+    ykmgr = YubiKeyManager(conf)
 
     print(BColours.BOLD + "yubikey-ldap manager" + BColours.RESET + " (written by Michal Ludvig)")
     print(
