@@ -254,9 +254,9 @@ class YubiKeyManager(object):
         if type(uid) is bytes:
             debug("Converting to string")
             uid = uid.decode('UTF-8')
-        uid_inval_chrs = re.search('([^\w\.\-])', uid)
-        if uid_inval_chrs:
-            error("Invalid characters in username: %s" % uid_inval_chrs.group(1))
+        valid_username = re.search(r'^[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$', uid)
+        if not valid_username:
+            error("Invalid characters in username: %s" % uid)
             return False
         filterstr = "(uid=%s)" % uid
         attrlist = ['objectClass', 'uid', 'cn', 'yubiKeyId']
