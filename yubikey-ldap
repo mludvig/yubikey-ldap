@@ -17,7 +17,7 @@ import ldap
 config_file = "yubikey-ldap.conf"
 
 
-class conf(object):
+class Conf(object):
     uri = ""
     bind_dn = ""
     bind_pw = ""
@@ -28,7 +28,7 @@ class conf(object):
     yubi_id_len = 12
 
 
-class bcolours:
+class BColours:
     YELLOW = '\033[93m'
     WHITE = '\033[97m'
     OKBLUE = '\033[94m'
@@ -41,15 +41,15 @@ class bcolours:
 
     @staticmethod
     def fmt(message, code):
-        return code + message + bcolours.RESET
+        return code + message + BColours.RESET
 
     @staticmethod
     def prompt_fmt(message):
-        return bcolours.PROMPT + message + bcolours.RESET
+        return BColours.PROMPT + message + BColours.RESET
 
     @staticmethod
     def header_fmt(message):
-        return bcolours.WHITE + message + bcolours.RESET
+        return BColours.WHITE + message + BColours.RESET
 
 
 def debug(message):
@@ -57,38 +57,39 @@ def debug(message):
 
 
 def info(message):
-    print(bcolours.BOLD + bcolours.fmt("INFO: ", bcolours.YELLOW) + bcolours.RESET + bcolours.fmt(message,
-                                                                                                  bcolours.YELLOW))
+    print(BColours.BOLD + BColours.fmt("INFO: ", BColours.YELLOW) + BColours.RESET + BColours.fmt(message,
+                                                                                                  BColours.YELLOW))
 
 
 def warning(message):
-    print(bcolours.BOLD + bcolours.fmt("WARNING: ", bcolours.PURPLE) + bcolours.RESET + bcolours.fmt(message,
-                                                                                                     bcolours.PURPLE))
+    print(BColours.BOLD + BColours.fmt("WARNING: ", BColours.PURPLE) + BColours.RESET + BColours.fmt(message,
+                                                                                                     BColours.PURPLE))
 
 
 def error(message):
-    print(bcolours.BOLD + bcolours.fmt("ERROR: ", bcolours.RED) + bcolours.RESET + bcolours.fmt(message, bcolours.RED))
+    print(BColours.BOLD + BColours.fmt("ERROR: ", BColours.RED) + BColours.RESET + BColours.fmt(message, BColours.RED))
 
 
 def fatal(message, exitcode=1):
-    print(bcolours.BOLD + bcolours.fmt("FATAL: ", bcolours.RED) + bcolours.RESET + bcolours.fmt(message, bcolours.RED))
+    print(BColours.BOLD + BColours.fmt("FATAL: ", BColours.RED) + BColours.RESET + BColours.fmt(message, BColours.RED))
     sys.exit(exitcode)
 
 
 def header(message):
-    print(bcolours.header_fmt(message))
+    print(BColours.header_fmt(message))
 
 
-def our_input(prompt, **kwargs):
-    return input(bcolours.prompt_fmt(prompt))
+def our_input(prompt):
+    return input(BColours.prompt_fmt(prompt))
 
 
 def uid2dn(uid):
-    return "uid=%s,%s" % (uid, conf.base_dn)
+    return "uid=%s,%s" % (uid, Conf.base_dn)
 
 
 class LdapUidCompleter:
     def __init__(self, ldap_con, conf):
+        self.matching_words = None
         self.words = []
         self.prefix = None
         self.ldap_con = ldap_con
@@ -157,10 +158,10 @@ class YubiKeyManager(object):
             if not self.is_modhex(ykid):
                 warning("Invalid YubiKey ID. Please try again.")
                 continue
-            if len(ykid) < conf.yubi_id_len:
-                warning("YubiKey ID must be at least %d characters. Please try again." % conf.yubi_id_len)
+            if len(ykid) < Conf.yubi_id_len:
+                warning("YubiKey ID must be at least %d characters. Please try again." % Conf.yubi_id_len)
                 continue
-            ykid = ykid[:conf.yubi_id_len]
+            ykid = ykid[:Conf.yubi_id_len]
 
             # Check YubiKey id is already there if exists
             if ykid in self.user_record['yubiKeyIds']:
@@ -186,11 +187,11 @@ class YubiKeyManager(object):
         self.refresh_user_record()
 
     def cmd_del_yubikey(self):
-        def _del_ykid(ykid):
-            debug("Removing yubiKeyId:%s from dn:%s" % (ykid, self.user_record['dn']))
-            if type(ykid) is str:
-                ykid = ykid.encode("UTF-8")
-            mod_attrs = [(ldap.MOD_DELETE, 'yubiKeyId', ykid)]
+        def _del_ykid(yubi_key_id):
+            debug("Removing yubiKeyId:%s from dn:%s" % (yubi_key_id, self.user_record['dn']))
+            if type(yubi_key_id) is str:
+                yubi_key_id = yubi_key_id.encode("UTF-8")
+            mod_attrs = [(ldap.MOD_DELETE, 'yubiKeyId', yubi_key_id)]
             self.con.modify_s(self.user_record['dn'], mod_attrs)
             self.refresh_user_record()
 
@@ -200,8 +201,8 @@ class YubiKeyManager(object):
             ykid = our_input("YubiKey to Delete: ")
             if not ykid:
                 break
-            if ykid[:conf.yubi_id_len] in self.user_record['yubiKeyIds']:
-                _del_ykid(ykid[:conf.yubi_id_len])
+            if ykid[:Conf.yubi_id_len] in self.user_record['yubiKeyIds']:
+                _del_ykid(ykid[:Conf.yubi_id_len])
             else:
                 try:
                     index = int(ykid) - 1
@@ -213,7 +214,8 @@ class YubiKeyManager(object):
                 print("No more YubiKey IDs assigned to %(cn)s [%(uid)s]" % self.user_record)
                 break
 
-    def select_user(self, search_list):
+    @staticmethod
+    def select_user(search_list):
         for index in range(len(search_list)):
             try:
                 uid = search_list[index][1]['uid'][0]
@@ -289,8 +291,9 @@ class YubiKeyManager(object):
             print("% 3d)  %s" % (index + 1, self.user_record['yubiKeyIds'][index]))
         print()
 
-    def is_modhex(self, string):
-        return bool(re.match('^[b-lnrtuv]+\s*$', string))
+    @staticmethod
+    def is_modhex(string):
+        return bool(re.match(r'^[b-lnrtuv]+\s*$', string))
 
     def find_user_by_yubikey(self, inp):
         if not self.is_modhex(inp):
@@ -339,19 +342,19 @@ if __name__ == "__main__":
     except:
         fatal("Failure reading config file: %s" % config_file)
     try:
-        conf.bind_pw = getpass.getpass("LDAP Password: ")
-        if len(conf.bind_pw) == 0:
+        Conf.bind_pw = getpass.getpass("LDAP Password: ")
+        if len(Conf.bind_pw) == 0:
             raise Exception
     except Exception:
         fatal("No password provided")
 
-    ykmgr = YubiKeyManager(conf)
+    ykmgr = YubiKeyManager(Conf)
 
-    print(bcolours.BOLD + "yubikey-ldap manager" + bcolours.RESET + " (written by Michal Ludvig)")
+    print(BColours.BOLD + "yubikey-ldap manager" + BColours.RESET + " (written by Michal Ludvig)")
     print(
-        bcolours.YELLOW + "Use " + bcolours.BOLD + "Ctrl+D" + bcolours.RESET + bcolours.YELLOW + " to exit at any time")
+        BColours.YELLOW + "Use " + BColours.BOLD + "Ctrl+D" + BColours.RESET + BColours.YELLOW + " to exit at any time")
     print(
-        bcolours.YELLOW + "Use " + bcolours.BOLD + "Enter" + bcolours.RESET + bcolours.YELLOW + " to return one level up")
+        BColours.YELLOW + "Use " + BColours.BOLD + "Enter" + BColours.RESET + BColours.YELLOW + " to return one level up")
 
     # Enter main loop
     while True:
